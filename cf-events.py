@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-#File   : cf-events.py: A script to display CF vents
+#File   : cf-events.py: A script to query CF firewall events
 #Author : Joe McManus josephmc@alumni.cmu.edu
 #Version: 0.1 2022/05/15
 
@@ -100,7 +100,8 @@ if not path.exists(args.db):
         jschallenge INT,
         challenge_solved INT,
         managed_challenge_interactive_solved INT,
-        jschallenge_solved INT
+        jschallenge_solved INT,
+        total INT
         )"""
     queryOneRow(query)
 
@@ -151,8 +152,8 @@ for action in actionTypes:
 
 
 #create a new empty report
-query='insert into events(timestamp) values(datetime())'
-queryOneRow(query)
+query='insert into events(timestamp, total) values(datetime(), ?)'
+queryOneRowVar(query, actions)
 
 #get report id
 query='SELECT id,timestamp FROM events ORDER BY timestamp DESC LIMIT 1'
