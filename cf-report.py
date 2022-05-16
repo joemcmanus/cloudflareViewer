@@ -123,7 +123,7 @@ def createStackedBar():
     jschallenge_solved = []
    
     t=(args.zonename, args.interval)
-    query="select * from events where zone=? order by id desc limit ?"
+    query="select * from events where zone like ? order by id desc limit ?"
     cursor=db.cursor()
     cursor.execute(query, t)
     results=cursor.fetchall()
