@@ -27,6 +27,6 @@ Do you have multiple zones? You can specify which zone during the storage an ret
    #./cf-events.py  --token=ABC1234  --zoneid=DEF456  --zonename=example
    #./cf-report.py --twohour --zonename=example
 
-![alt_tag](https://github.com/joemcmanus/cloudflareViewer/blob/master/img/twohourReport.jpg)
-![alt_tag](https://github.com/joemcmanus/cloudflareViewer/blob/master/img/stackedReport.jpg)
+![alt_tag](https://github.com/joemcmanus/cloudflareViewer/blob/main/img/twohourReport.jpg)
+![alt_tag](https://github.com/joemcmanus/cloudflareViewer/blob/main/img/stackedReport.jpg)
 
