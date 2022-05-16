@@ -79,7 +79,7 @@ def createGraphAll():
     #create line  Graph of all events
     events=[]
     times=[]
-    query="select id, timestamp, (total-log) from events limit 120" 
+    query="select id, timestamp, (total-log) from events order by id desc limit 120" 
     results=queryAllRows(query)
     for row in results:
         times.append(row[1])
@@ -121,7 +121,7 @@ def createStackedBar():
     managed_challenge_interactive_solved =[]
     jschallenge_solved = []
     
-    query="select * from events limit " + args.interval
+    query="select * from events order by id desc limit " + args.interval
     results=queryAllRows(query)
     for row in results:
         timestamp.append(toZero(row[1]))
