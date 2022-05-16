@@ -34,7 +34,8 @@ from os import path
 
 parser = argparse.ArgumentParser(description='Cloudflare FW Event Exporter')
 parser.add_argument('--token', help="CF API Token", action="store")
-parser.add_argument('--zone', help="CF Zone ID", action="store")
+parser.add_argument('--zoneid', help="CF Zone ID", action="store")
+parser.add_argument('--zonename', help="CF Zone ID", action="store", default=None)
 parser.add_argument('--db', help="SQLite DB file, defaults to cf-events.sql3 if not provided.  requires.", action="store", default='cf-events.sql3')
 args=parser.parse_args()
 
@@ -42,8 +43,8 @@ if not args.token:
     print("ERROR: Must provide --token ")
     quit()
 
-if not args.zone:
-    print("ERROR: Must provide --zone")
+if not args.zoneid:
+    print("ERROR: Must provide --zoneid")
     quit()
 
 def getResults(url, headers, data):
@@ -101,13 +102,14 @@ if not path.exists(args.db):
         challenge_solved INT,
         managed_challenge_interactive_solved INT,
         jschallenge_solved INT,
-        total INT
+        total INT,
+        zone VARCHAR(256)
         )"""
     queryOneRow(query)
 
 
 startDate= datetime.utcnow().replace(microsecond=0).isoformat()
-endDate= (datetime.utcnow().replace(microsecond=0) - timedelta(minutes=1)).isoformat()
+endDate= (datetime.utcnow().replace(microsecond=0) - timedelta(minutes=2)).isoformat()
 
 payload = f'''{{"query":
   "query ListFirewallEvents($zoneTag: string, $filter: FirewallEventsAdaptiveFilter_InputObject) {{
@@ -124,7 +126,7 @@ payload = f'''{{"query":
     }}
   }}",
   "variables": {{
-    "zoneTag": "{args.zone}",
+    "zoneTag": "{args.zoneid}",
     "filter": {{ 
       "datetime_geq": "{endDate}Z",
       "datetime_leq": "{startDate}Z"
@@ -152,13 +154,18 @@ for action in actionTypes:
 
 
 #create a new empty report
-query='insert into events(timestamp, total) values(datetime(), ?)'
-queryOneRowVar(query, actions)
+t=(actions, args.zonename)
+query='insert into events(timestamp, total, zone) values(datetime(), ?, ?)'
+cursor=db.cursor()
+cursor.execute(query, t)
+db.commit()
 
 #get report id
-query='SELECT id,timestamp FROM events ORDER BY timestamp DESC LIMIT 1'
-reportID,timestamp=queryOneRow(query)
-
+t=(args.zonename,)
+query='SELECT id,timestamp FROM events where zone = ? ORDER BY timestamp DESC LIMIT 1'
+cursor=db.cursor()
+cursor.execute(query, t)
+reportID,timestamp=cursor.fetchone()
 
 for action, count in cnt.most_common():
     t=(count, reportID)
@@ -166,4 +173,3 @@ for action, count in cnt.most_common():
     cursor=db.cursor()
     cursor.execute(query, t)
     db.commit()
-

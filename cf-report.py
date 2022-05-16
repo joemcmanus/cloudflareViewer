@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-#File   : cf-events.py: A script to display CF vents
+#File   : cf-report.py: A script to display CF vents
 #Author : Joe McManus josephmc@alumni.cmu.edu
 #Version: 0.1 2022/05/15
 
@@ -31,8 +31,9 @@ import pandas as pd
 parser = argparse.ArgumentParser(description='Cloudflare FW Event Exporter')
 parser.add_argument('--db', help="SQLite DB file, defaults to cf-events.sql3 if not provided.  requires.", action="store", default='cf-events.sql3')
 parser.add_argument('--twohour', help="Display two hour report ", action="store_true")
-parser.add_argument('--interval', help="Where applicable use this interval ", action="store", default="120")
+parser.add_argument('--interval', help="Where applicable use this interval ", action="store", default=120)
 parser.add_argument('--stacked', help="Display a stacked bar of alert types ", action="store_true")
+parser.add_argument('--zonename', help="Limit to a named zone, default=all ", action="store", default="%")
 
 args=parser.parse_args()
 
@@ -79,8 +80,8 @@ def createGraphAll():
     #create line  Graph of all events
     events=[]
     times=[]
-    query="select id, timestamp, (total-log) from events order by id desc limit 120" 
-    results=queryAllRows(query)
+    query="select id, timestamp, (total-log) from events where zone like ? order by id desc limit 120" 
+    results=queryAllRowsVar(query,args.zonename)
     for row in results:
         times.append(row[1])
         events.append(row[2])
@@ -94,7 +95,7 @@ def createGraphAll():
     end=times[-1]
 
     plt.plot(times, events)
-    plt.title("Cloudflare Events last two hours")
+    plt.title(args.zonename + " Cloudflare Events last two hours")
     plt.xlabel("Date") 
     plt.ylabel("Events")
     plt.show()
@@ -120,9 +121,12 @@ def createStackedBar():
     challenge_solved =[]
     managed_challenge_interactive_solved =[]
     jschallenge_solved = []
-    
-    query="select * from events order by id desc limit " + args.interval
-    results=queryAllRows(query)
+   
+    t=(args.zonename, args.interval)
+    query="select * from events where zone=? order by id desc limit ?"
+    cursor=db.cursor()
+    cursor.execute(query, t)
+    results=cursor.fetchall()
     for row in results:
         timestamp.append(toZero(row[1]))
         managed_challenge.append(toZero(row[2]))
@@ -166,9 +170,7 @@ def createStackedBar():
         "challenge_solved", 
         "managed_challenge_interactive_solved", 
         "jschallenge_solved"])
-    plt.title("Events")
-    plt.show()
-    plt.title("Events")
+    plt.title(args.zonename + " Events")
     plt.show()
 
      
