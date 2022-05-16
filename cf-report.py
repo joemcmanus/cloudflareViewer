@@ -143,6 +143,21 @@ def createStackedBar():
         managed_challenge_interactive_solved.append(toZero(row[13]))
         jschallenge_solved.append(toZero(row[14]))
 
+    timestamp.reverse()
+    managed_challenge.reverse()
+    log.reverse()
+    allow.reverse()
+    managed_challenge_bypassed.reverse()
+    challenge.reverse()
+    challenge_bypassed.reverse()
+    block.reverse()
+    managed_challenge_non_interactive_solved.reverse()
+    jschallenge_bypassed.reverse()
+    jschallenge.reverse()
+    challenge_solved.reverse()
+    managed_challenge_interactive_solved.reverse()
+    jschallenge_solved.reverse()
+   
 
     plt.stacked_bar(timestamp, 
         [managed_challenge, 
