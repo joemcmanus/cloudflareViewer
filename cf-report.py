@@ -21,61 +21,24 @@ import datetime
 import argparse
 import sys
 from prettytable import PrettyTable
-import plotly
-import plotly.graph_objs as go
-import plotly.express as px
-import pandas as pd
 from os import path
 import plotext as plt
+import pandas as pd
 
 
 
 
 parser = argparse.ArgumentParser(description='Cloudflare FW Event Exporter')
 parser.add_argument('--db', help="SQLite DB file, defaults to cf-events.sql3 if not provided.  requires.", action="store", default='cf-events.sql3')
-parser.add_argument('--graphs', help="Display graphs where available", action="store_true")
-parser.add_argument('--textgraphs', help="Display text graphs where available", action="store_true")
+parser.add_argument('--twohour', help="Display two hour report ", action="store_true")
+parser.add_argument('--interval', help="Where applicable use this interval ", action="store", default="120")
+parser.add_argument('--stacked', help="Display a stacked bar of alert types ", action="store_true")
 
 args=parser.parse_args()
 
 if len(sys.argv) == 1: 
     parser.print_help()
     sys.exit()
-
-
-
-def createGraph(yData, xData, yTitle, xTitle, title):
-    plotly.io.write_image({
-        "data":[ go.Bar( x=xData, y=yData) ],
-        "layout": go.Layout(title=title,
-            xaxis=dict(title=xTitle,type='category'),
-            yaxis=dict(title=yTitle), )
-        },makeFilename(title))
-
-
-def createPieGraph(xData, yData, xTitle, yTitle, title, timestamp): 
-    plotly.io.write_image({
-        "data":[ go.Pie( labels=xData, values=yData, title=title + " " + timestamp)]},makeFilename(title))
-
-def createStackedBar():
-    cursor=db.cursor()
-    df=pd.read_sql("select distinct(a.sev) as Severity, COUNT(DISTINCT(a.cve)) as Count, b.timestamp as date  from vulns a, reports b where a.reportID=b.reportID group by b.reportID, a.cve order by b.timestamp desc limit 20 ", db)
-    title="Unique CVE"
-    fig=px.bar(df, x="date", y="Count", color="Severity",title=title, color_discrete_sequence=px.colors.qualitative.D3)
-    fig.update_layout(xaxis_type='category')
-    fig.write_image(makeFilename(title))
-
-    df=pd.read_sql("select distinct(a.sev) as Severity, COUNT(a.cve) as 'Machine Count',  b.timestamp as date  from vulns a, reports b where a.reportID=b.reportID group by b.reportID, a.cve", db)
-    title="Hosts with CVEs"
-    fig=px.line(df, x="date", y="Machine Count", color="Severity",title=title, color_discrete_sequence=px.colors.qualitative.D3)
-    fig.write_image(makeFilename(title))
-
-    df=pd.read_sql("select a.sev as Severity, a.sevCount as Count, b.timestamp as date from alerts a, reports b where a.reportID=b.reportID and sev <=2 and date >= date('now', '-14 days')", db)
-    title="Alerts over Time"
-    fig=px.line(df, x="date", y="Count", color="Severity",title=title, color_discrete_sequence=px.colors.qualitative.D3)
-    fig.update_layout(xaxis_type='category')
-    fig.write_image(makeFilename(title))
-
 
 def makeFilename(title):
     #first remove spaces
@@ -136,27 +99,77 @@ def createGraphAll():
     plt.ylabel("Events")
     plt.show()
 
-def createStackBar():
+def toZero(value):
+    if value == None:
+        return 0
+    else:
+        return value
 
-     timestamp datetime =[]
-     managed_challenge =[]
-     log =[]
-     allow =[]
-     managed_challenge_bypassed =[]
-     challenge =[]
-     challenge_bypassed =[]
-     block =[]
-     managed_challenge_non_interactive_solved =[]
-     jschallenge_bypassed =[]
-     jschallenge =[]
-     challenge_solved =[]
-     managed_challenge_interactive_solved =[]
-     jschallenge_solved = []
+def createStackedBar():
+    timestamp =[]
+    managed_challenge =[]
+    log =[]
+    allow =[]
+    managed_challenge_bypassed =[]
+    challenge =[]
+    challenge_bypassed =[]
+    block =[]
+    managed_challenge_non_interactive_solved =[]
+    jschallenge_bypassed =[]
+    jschallenge =[]
+    challenge_solved =[]
+    managed_challenge_interactive_solved =[]
+    jschallenge_solved = []
+    
+    query="select * from events limit " + args.interval
+    results=queryAllRows(query)
+    for row in results:
+        timestamp.append(toZero(row[1]))
+        managed_challenge.append(toZero(row[2]))
+        log.append(toZero(row[3]))
+        allow.append(toZero(row[4]))
+        managed_challenge_bypassed.append(toZero(row[5]))
+        challenge.append(toZero(row[6]))
+        challenge_bypassed.append(toZero(row[7]))
+        block.append(toZero(row[8]))
+        managed_challenge_non_interactive_solved.append(toZero(row[9]))
+        jschallenge_bypassed.append(toZero(row[10]))
+        jschallenge.append(toZero(row[11]))
+        challenge_solved.append(toZero(row[12]))
+        managed_challenge_interactive_solved.append(toZero(row[13]))
+        jschallenge_solved.append(toZero(row[14]))
 
-     query="select * from events limit 120"
-     results=queryAllRows(query)
-     for row in results:
-        `
+
+    plt.stacked_bar(timestamp, 
+        [managed_challenge, 
+        managed_challenge_bypassed, 
+        allow, 
+        challenge, 
+        challenge_bypassed, 
+        block, 
+        managed_challenge_non_interactive_solved, 
+        jschallenge_bypassed,  
+        jschallenge, 
+        challenge_solved, 
+        managed_challenge_interactive_solved, 
+        jschallenge_solved],
+        label=
+        ["managed_challenge", 
+        "managed_challenge_bypassed", 
+        "allow", 
+        "challenge", 
+        "challenge_bypassed", 
+        "block", 
+        "managed_challenge_non_interactive_solved", 
+        "jschallenge_bypassed",  
+        "jschallenge", 
+        "challenge_solved", 
+        "managed_challenge_interactive_solved", 
+        "jschallenge_solved"])
+    plt.title("Events")
+    plt.show()
+    plt.title("Events")
+    plt.show()
 
      
 
@@ -168,5 +181,8 @@ else:
     db = sqlite3.connect(args.db)
     db.row_factory = sqlite3.Row
 
-if args.textgraphs:
+if args.twohour:
     createGraphAll()
+
+if args.stacked:
+    createStackedBar()
