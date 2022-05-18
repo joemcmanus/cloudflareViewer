@@ -80,8 +80,12 @@ def createGraphAll():
     #create line  Graph of all events
     events=[]
     times=[]
-    query="select id, timestamp, (total-log) from events where zone like ? order by id desc limit 120" 
-    results=queryAllRowsVar(query,args.zonename)
+
+    t=(args.zonename, args.interval)
+    query="select id, timestamp, (total-log) from events where zone like ? order by id desc limit ?" 
+    cursor=db.cursor()
+    cursor.execute(query, t)
+    results=cursor.fetchall()
     for row in results:
         times.append(row[1])
         events.append(row[2])
@@ -98,6 +102,7 @@ def createGraphAll():
     plt.title(args.zonename + " Cloudflare Events last two hours")
     plt.xlabel("Date") 
     plt.ylabel("Events")
+    plt.canvas_color("black")
     plt.show()
 
 def toZero(value):
@@ -186,6 +191,7 @@ def createStackedBar():
         "managed_challenge_interactive_solved", 
         "jschallenge_solved"])
     plt.title(args.zonename + " Events")
+    plt.canvas_color("black")
     plt.show()
 
      
