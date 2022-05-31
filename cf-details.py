@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-#File   : cf-events.py: A script to query CF firewall events
+#File   : cf-details.py: This script stores details Cloudflare firewall events in a sqlite db for better analysis
 #Author : Joe McManus josephmc@alumni.cmu.edu
-#Version: 0.1 2022/05/15
+#Version: 0.1 2022/05/30
 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -30,13 +30,14 @@ import requests
 import sqlite3
 from collections import Counter
 from os import path 
+import pprint
 
 
 parser = argparse.ArgumentParser(description='Cloudflare FW Event Exporter')
 parser.add_argument('--token', help="CF API Token", action="store")
 parser.add_argument('--zoneid', help="CF Zone ID", action="store")
 parser.add_argument('--zonename', help="CF Zone ID", action="store", default=None)
-parser.add_argument('--db', help="SQLite DB file, defaults to cf-events.sql3 if not provided.  requires.", action="store", default='cf-events.sql3')
+parser.add_argument('--db', help="SQLite DB file, defaults to cf-details.sql3 if not provided.  requires.", action="store", default='cf-details.sql3')
 args=parser.parse_args()
 
 if not args.token:
@@ -89,27 +90,21 @@ if not path.exists(args.db):
     db.row_factory = sqlite3.Row
     query="""CREATE TABLE events (id INTEGER PRIMARY KEY,
         timestamp datetime NOT NULL,
-        managed_challenge INT,
-        log INT,
-        allow INT,
-        managed_challenge_bypassed INT,
-        challenge INT,
-        challenge_bypassed INT,
-        block INT,
-        managed_challenge_non_interactive_solved INT,
-        jschallenge_bypassed INT,
-        jschallenge INT,
-        challenge_solved INT,
-        managed_challenge_interactive_solved INT,
-        jschallenge_solved INT,
-        total INT,
+        ja3Hash VARCHAR(256),
+        clientIP VARCHAR(256),
+        ruleId VARCHAR(256),
+        userAgent VARCHAR(1024),
+        botScore INT,
+        action VARCHAR(256),
         zone VARCHAR(256)
+        clientRequestHTTPHost VARCHAR(256),
+        botScoreSrcName VARCHAR(256)
         )"""
     queryOneRow(query)
 
 
 startDate= datetime.utcnow().replace(microsecond=0).isoformat()
-endDate= (datetime.utcnow().replace(microsecond=0) - timedelta(minutes=1)).isoformat()
+endDate= (datetime.utcnow().replace(microsecond=0) - timedelta(minutes=5)).isoformat()
 
 payload = f'''{{"query":
   "query ListFirewallEvents($zoneTag: string, $filter: FirewallEventsAdaptiveFilter_InputObject) {{
@@ -121,6 +116,14 @@ payload = f'''{{"query":
           orderBy: [datetime_DESC]
         ) {{
           action
+          clientIP
+          botScore
+          ja3Hash
+          userAgent
+          ruleId
+          datetime
+          clientRequestHTTPHost
+          botScoreSrcName
         }}
       }}
     }}
@@ -139,37 +142,20 @@ url="https://api.cloudflare.com/client/v4/graphql/"
 #Get the events from Cloudflare
 events=getResults(url, headers, payload)
 
+pp = pprint.PrettyPrinter(indent=4)
+#pp.pprint(events)
+#quit()
+
 actions=0
-actionTypes=[]
 
 for x in events["data"]["viewer"]["zones"]:
     for y in x.items():
         for z in y[1]:
-            actions+=1
-            actionTypes.append(z['action'])
-            
-cnt=Counter()
-for action in actionTypes:
-    cnt[action] += 1
+            #pp.pprint(z)
+            t=(z['action'], z['clientIP'], z['botScore'], z['ja3Hash'], z['userAgent'],z['ruleId'], z['datetime'], z['clientRequestHTTPHost'], z['botScoreSrcName'], args.zonename)
+            query='insert into events(action, clientIP, botScore, ja3Hash,  userAgent, ruleId, timestamp, clientRequestHTTPHost, botScoreSrcName, zone) values(?,?,?,?,?,?,?,?,?,?)'
+            cursor=db.cursor()
+            cursor.execute(query, t)
 
-
-#create a new empty report
-t=(actions, args.zonename)
-query='insert into events(timestamp, total, zone) values(datetime(), ?, ?)'
-cursor=db.cursor()
-cursor.execute(query, t)
 db.commit()
 
-#get report id
-t=(args.zonename,)
-query='SELECT id,timestamp FROM events where zone = ? ORDER BY timestamp DESC LIMIT 1'
-cursor=db.cursor()
-cursor.execute(query, t)
-reportID,timestamp=cursor.fetchone()
-
-for action, count in cnt.most_common():
-    t=(count, reportID)
-    query="UPDATE events SET " + action +"  = ? WHERE id = ?"
-    cursor=db.cursor()
-    cursor.execute(query, t)
-    db.commit()

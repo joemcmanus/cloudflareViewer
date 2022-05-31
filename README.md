@@ -27,6 +27,17 @@ Do you have multiple zones? You can specify which zone during the storage an ret
     #./cf-events.py  --token=ABC1234  --zoneid=DEF456  --zonename=example
     #./cf-report.py --twohour --zonename=example
 
+# Advanced Analytics
+
+I had the need to analyze firewall events in a bit more detail. For now you have to run the cf-details.py script to load these details into a sqlite db. 
+This will only be of use to some, and the DB grows, so it is broken out into a seperate script for now. 
+
+    ./cf-details.py  --token=ABC1234  --zoneid=DEF456 
+
+    ./cf-report.py --ja3 
+
+This is helpful for me to see JA3 fingerprints with a large number of User Agents, this indicates to me that this is synthetic traffic. 
+
 ![alt_tag](https://github.com/joemcmanus/cloudflareViewer/blob/main/img/twohourReport.jpg)
 ![alt_tag](https://github.com/joemcmanus/cloudflareViewer/blob/main/img/stackedReport.jpg)
 

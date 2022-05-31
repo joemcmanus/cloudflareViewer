@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 #File   : cf-report.py: A script to display CF vents
 #Author : Joe McManus josephmc@alumni.cmu.edu
-#Version: 0.1 2022/05/15
+#Version: 0.2 2022/05/30
 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -30,9 +30,10 @@ import pandas as pd
 
 parser = argparse.ArgumentParser(description='Cloudflare FW Event Exporter')
 parser.add_argument('--db', help="SQLite DB file, defaults to cf-events.sql3 if not provided.  requires.", action="store", default='cf-events.sql3')
-parser.add_argument('--twohour', help="Display two hour report ", action="store_true")
+parser.add_argument('--events', help="Display all events in a line graph", action="store_true")
 parser.add_argument('--interval', help="Where applicable use this interval ", action="store", default=120)
 parser.add_argument('--stacked', help="Display a stacked bar of alert types ", action="store_true")
+parser.add_argument('--ja3', help="Display a table of ja3 hashes ", action="store_true")
 parser.add_argument('--zonename', help="Limit to a named zone, default=all ", action="store", default="%")
 
 args=parser.parse_args()
@@ -75,16 +76,41 @@ def queryAllRowsVar(query,var):
     cursor.execute(query,t)
     result=cursor.fetchall()
     return(result)
-    
+
+def ja3Table():
+    ja3Hashes=[]
+    hashCount=[]
+    userAgents=[]
+    t=(args.zonename, )
+    table= PrettyTable(["JA3", "Count", "User Agents"])
+    query="select distinct(ja3Hash) as hash, count(ja3Hash) as occur, count(distinct(userAgent))  from events where action != 'allow' and botScoreSrcName != 'Verified Bot' and zone=? and ja3Hash != '' group by hash order by occur desc  limit 20 "
+    cursor=db.cursor()
+    cursor.execute(query, t)
+    results=cursor.fetchall()
+    for row in results:
+        ja3Hashes.append(row[0][0:6])
+        hashCount.append(row[1])
+        userAgents.append(row[2])
+        table.add_row([row[0], row[1], row[2]])
+
+    print(table)
+
+    plt.bar(ja3Hashes, hashCount)
+    plt.title("JA3 Hash Occurences")
+    plt.show()
+
+
+
 def createGraphAll():
     #create line  Graph of all events
     events=[]
     times=[]
 
-    t=(args.zonename, args.interval)
-    query="select id, timestamp, (total-log) from events where zone like ? order by id desc limit ?" 
+    t=(args.zonename, args.interval,)
+    #query='select id, timestamp, (total-log) from events where zone like ? and timestamp > datetime(\'now\', \'-? minutes\') order by id desc'
+    query='select id, timestamp, (total-log) from events where zone like ?  order by id desc limit ?'
     cursor=db.cursor()
-    cursor.execute(query, t)
+    cursor.execute(query, [args.zonename, args.interval])
     results=cursor.fetchall()
     for row in results:
         times.append(row[1])
@@ -99,10 +125,10 @@ def createGraphAll():
     end=times[-1]
 
     plt.plot(times, events)
-    plt.title(args.zonename + " Cloudflare Events last two hours")
+    plt.title(args.zonename + " Cloudflare Events")
     plt.xlabel("Date") 
     plt.ylabel("Events")
-    plt.canvas_color("black")
+    #plt.canvas_color("black")
     plt.show()
 
 def toZero(value):
@@ -128,6 +154,7 @@ def createStackedBar():
     jschallenge_solved = []
    
     t=(args.zonename, args.interval)
+    query="select * from events where zone like %s and timestamp >  datetime('now', '-%i minutes') order by id desc"
     query="select * from events where zone like ? order by id desc limit ?"
     cursor=db.cursor()
     cursor.execute(query, t)
@@ -191,7 +218,7 @@ def createStackedBar():
         "managed_challenge_interactive_solved", 
         "jschallenge_solved"])
     plt.title(args.zonename + " Events")
-    plt.canvas_color("black")
+    #plt.canvas_color("black")
     plt.show()
 
      
@@ -204,8 +231,11 @@ else:
     db = sqlite3.connect(args.db)
     db.row_factory = sqlite3.Row
 
-if args.twohour:
+if args.events:
     createGraphAll()
 
 if args.stacked:
     createStackedBar()
+
+if args.ja3:
+    ja3Table()
